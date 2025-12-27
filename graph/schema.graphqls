@@ -1,0 +1,17 @@
+type Message {
+  id: ID!
+  sender: String!
+  receiver: String!
+  message: String!
+  isRead: Boolean!
+  createdAt: String!
+}
+
+type Query {
+  getMessages: [Message!]!
+  getUnreadMessages: [Message!]!
+}
+
+type Mutation {
+  markMessageAsRead(messageId: ID!): Message!
+}
