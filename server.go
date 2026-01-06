@@ -29,22 +29,11 @@ func main() {
 	kafkaCfg := config.LoadKafkaConfig()
 
 	eventBus, err := eventbus.NewEventBus(eventbus.Config{
-		Brokers:  kafkaCfg.Brokers,
-		Username: kafkaCfg.Username,
-		Password: kafkaCfg.Password,
+		Brokers: kafkaCfg.Brokers,
 	})
 	if err != nil {
 		log.Fatalf("failed to init event bus: %v", err)
 	}
-
-	kafkaConsumer, err := eventBus.NewConsumer(
-		"notification",
-		[]string{"notification.requested"},
-	)
-	if err != nil {
-		log.Fatalf("failed to init event bus: %v", err)
-	}
-	//TODO: start a consumer as a go routine
 
 	uri := os.Getenv("MONGODB_URI")
 	client, err := mongo.Connect(options.Client().ApplyURI(uri))
@@ -52,7 +41,7 @@ func main() {
 		log.Fatal("Mongo Connect Error: ", err)
 	}
 
-	db := client.Database("profile-service")
+	db := client.Database("notification-service")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
@@ -60,6 +49,20 @@ func main() {
 
 	messageRepo := repository.NewMessageRepository(db)
 	messageService := services.NewMessageService(messageRepo)
+
+	_, err = eventBus.NewConsumer(
+		"notification",
+		[]string{"notification"},
+		func(key, value []byte) error {
+			if err := messageService.CreateMessage(value); err != nil {
+				log.Printf("error while creating message: %s", err)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		log.Fatalf("failed to init event bus: %v", err)
+	}
 
 	resolver := &graph.Resolver{
 		MessageService: messageService,

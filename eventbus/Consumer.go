@@ -1,79 +1,115 @@
 package eventbus
 
 import (
+	"context"
 	"log"
+	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
+type Handler func(key, value []byte) error
+
 type Consumer struct {
-	c *kafka.Consumer
+	c      *kafka.Consumer
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
-func (e *EventBus) NewConsumer(groupID string, topics []string) (*Consumer, error) {
-	c, err := kafka.NewConsumer(&kafka.ConfigMap{
+func (e *EventBus) NewConsumer(
+	groupID string,
+	topics []string,
+	handler Handler,
+) (*Consumer, error) {
+
+	cfg := &kafka.ConfigMap{
 		"bootstrap.servers": e.cfg.Brokers,
 
-		"security.protocol": "SASL_SSL",
+		"security.protocol": "PLAINTEXT",
 		"sasl.mechanisms":   "PLAIN",
-		"sasl.username":     e.cfg.Username,
-		"sasl.password":     e.cfg.Password,
 
 		"group.id":          groupID,
 		"auto.offset.reset": "earliest",
 
 		"enable.auto.commit": false,
-	})
 
+		"go.application.rebalance.enable": true,
+	}
+
+	c, err := kafka.NewConsumer(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.SubscribeTopics(topics, nil); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	consumer := &Consumer{
+		c:      c,
+		ctx:    ctx,
+		cancel: cancel,
+	}
+
+	err = c.SubscribeTopics(topics, func(c *kafka.Consumer, ev kafka.Event) error {
+		switch e := ev.(type) {
+		case kafka.AssignedPartitions:
+			log.Printf("Partitions assigned: %v", e.Partitions)
+			return c.Assign(e.Partitions)
+
+		case kafka.RevokedPartitions:
+			log.Printf("Partitions revoked: %v", e.Partitions)
+			return c.Unassign()
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	consumer := &Consumer{c: c}
-	consumer.startDeliveryLoop()
-
+	consumer.start(handler)
 	return consumer, nil
 }
 
-func (p *Consumer) startDeliveryLoop() {
-	go func() {
-		for ev := range p.c.Events() {
-			switch e := ev.(type) {
+func (p *Consumer) start(handler Handler) {
+	p.wg.Add(1)
 
-			case *kafka.Message:
-				if e.TopicPartition.Error != nil {
-					log.Printf("consumer error: %v", e.TopicPartition.Error)
+	go func() {
+		defer p.wg.Done()
+
+		for {
+			select {
+			case <-p.ctx.Done():
+				log.Println("consumer shutting down")
+				return
+
+			default:
+				ev := p.c.Poll(100)
+				if ev == nil {
 					continue
 				}
 
-				log.Printf(
-					"received message topic=%s partition=%d offset=%d",
-					*e.TopicPartition.Topic,
-					e.TopicPartition.Partition,
-					e.TopicPartition.Offset,
-				)
+				switch e := ev.(type) {
 
-				// TODO: call handler here
-				// handler(e.Value)
+				case *kafka.Message:
+					if err := handler(e.Key, e.Value); err != nil {
+						log.Printf("handler failed (offset %d): %v", e.TopicPartition.Offset, err)
+						continue 
+					}
 
-				_, err := p.c.CommitMessage(e)
-				if err != nil {
-					log.Printf("commit failed: %v", err)
+					if _, err := p.c.CommitMessage(e); err != nil {
+						log.Printf("commit failed: %v", err)
+					}
+
+				case kafka.Error:
+					log.Printf("kafka error: %v", e)
 				}
-
-			case kafka.Error:
-				log.Printf("kafka error: %v", e)
 			}
 		}
 	}()
 }
 
 func (p *Consumer) Close() {
-	if err := p.c.Close(); err != nil {
-		log.Printf("error closing kafka consumer: %v", err)
-	}
+	p.cancel()
+	p.wg.Wait()
+	p.c.Close()
 }

@@ -21,7 +21,7 @@ func NewMessageRepository(db *mongo.Database) *MessageRepository {
 func (r *MessageRepository) InitIndexes(ctx context.Context) error {
     models := []mongo.IndexModel{
         {
-            Keys:    bson.M{"email": 1},
+            Keys:    bson.M{"receiver": 1},
             Options: options.Index().SetUnique(true),
         },
     }

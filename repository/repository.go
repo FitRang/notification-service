@@ -13,7 +13,7 @@ func Init(database *mongo.Database) {
 
     ctx := context.Background()
 
-    if err := NewMessagesRepository(db).InitIndexes(ctx); err != nil {
+    if err := NewMessageRepository(db).InitIndexes(ctx); err != nil {
         log.Printf("Dossier index creation failed: %v\n", err)
     }
 }
