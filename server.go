@@ -51,7 +51,7 @@ func main() {
 	messageService := services.NewMessageService(messageRepo)
 
 	_, err = eventBus.NewConsumer(
-		"notification",
+		"notification-service",
 		[]string{"notification"},
 		func(key, value []byte) error {
 			if err := messageService.CreateMessage(value); err != nil {
