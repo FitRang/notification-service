@@ -7,24 +7,23 @@ package graph
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Foxtrot-14/FitRang/notification-service/graph/model"
 )
 
 // MarkMessageAsRead is the resolver for the markMessageAsRead field.
 func (r *mutationResolver) MarkMessageAsRead(ctx context.Context, messageID string) (*model.Message, error) {
-	panic(fmt.Errorf("not implemented: MarkMessageAsRead - markMessageAsRead"))
+	return r.MessageService.MarkMessageAsRead(ctx, messageID)
 }
 
 // GetMessages is the resolver for the getMessages field.
 func (r *queryResolver) GetMessages(ctx context.Context) ([]*model.Message, error) {
-	panic(fmt.Errorf("not implemented: GetMessages - getMessages"))
+	return r.MessageService.GetMessages(ctx)
 }
 
 // GetUnreadMessages is the resolver for the getUnreadMessages field.
 func (r *queryResolver) GetUnreadMessages(ctx context.Context) ([]*model.Message, error) {
-	panic(fmt.Errorf("not implemented: GetUnreadMessages - getUnreadMessages"))
+	return r.MessageService.GetUnreadMessages(ctx)
 }
 
 // Mutation returns MutationResolver implementation.
@@ -33,5 +32,7 @@ func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
-type mutationResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
+type (
+	mutationResolver struct{ *Resolver }
+	queryResolver    struct{ *Resolver }
+)

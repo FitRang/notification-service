@@ -19,7 +19,7 @@ func (r *MessageService) CreateMessage(raw []byte) error {
 	messageBson := db.Message{
 		Sender:    message.Sender.Username,
 		Message:   message.Message,
-		Receiver:  message.Receiver.Username,
+		Receiver:  message.Receiver.Email,
 		CreatedAt: now,
 	}
 
