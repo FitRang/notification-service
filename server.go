@@ -21,10 +21,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-const defaultPort = "8080"
+const defaultPort = "8083"
 
 func main() {
-
 	godotenv.Load(".env")
 	kafkaCfg := config.LoadKafkaConfig()
 
