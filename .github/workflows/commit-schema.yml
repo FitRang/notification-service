@@ -36,4 +36,4 @@ jobs:
           graph-ref: ${{ secrets.APOLLO_GRAPH_REF }}
           name: notification-service
           schema: ./graph/schema.graphqls
-          routing-url: http://notification-service:8080/query
+          routing-url: http://notification-service:8083/query
