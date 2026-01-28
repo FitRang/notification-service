@@ -13,6 +13,7 @@ import (
 	"github.com/Foxtrot-14/FitRang/notification-service/config"
 	"github.com/Foxtrot-14/FitRang/notification-service/eventbus"
 	"github.com/Foxtrot-14/FitRang/notification-service/graph"
+	"github.com/Foxtrot-14/FitRang/notification-service/middleware"
 	"github.com/Foxtrot-14/FitRang/notification-service/repository"
 	"github.com/Foxtrot-14/FitRang/notification-service/services"
 	"github.com/joho/godotenv"
@@ -48,6 +49,7 @@ func main() {
 
 	messageRepo := repository.NewMessageRepository(db)
 	messageService := services.NewMessageService(messageRepo)
+	repository.Init(db)
 
 	_, err = eventBus.NewConsumer(
 		"notification-service",
@@ -87,7 +89,10 @@ func main() {
 	})
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", srv)
+	http.Handle(
+		"/query",
+		middleware.AuthMiddleware(srv),
+	)
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
